@@ -1,0 +1,67 @@
+RunConfig – How and Why I Used It
+What is RunConfig?
+
+RunConfig is a configuration object provided by the agents framework that defines how the Runner executes an Agent. It contains settings like:
+
+Model: Specifies which AI model the Agent should use.
+
+Model provider: Specifies the client for API calls (AsyncOpenAI in this case).
+
+Tracing or logging settings: Enable or disable tracing for cleaner outputs.
+
+How I Used It
+
+Created a separate file run_config.py for modularity:
+
+from agents import AsyncOpenAI, OpenAIChatCompletionsModel
+from agents.run import RunConfig
+
+client = AsyncOpenAI(api_key=GEMINI_API_KEY)
+model = OpenAIChatCompletionsModel(model="gemini-2.0-flash-001", openai_client=client)
+run_config = RunConfig(model=model, model_provider=client, tracing_disabled=True)
+
+Imported run_config in my FastAPI app:
+
+from run_config import run_config
+
+Used it in Runner to execute the Agent:
+
+result = await Runner.run(
+    starting_agent=agent,
+    input=query.question,
+    context=context,
+    run_config=run_config
+)
+Why I Used RunConfig
+
+Provides centralized control over model execution.
+
+Makes it easy to reuse across multiple files or agents.
+
+Ensures the Agent logic is decoupled from configuration details.
+
+Enables tracing/logging control without modifying Agent code.
+
+Supports scalable and maintainable architecture.
+
+Tools Implemented
+
+list_products – List all products.
+
+calculate_total – Compute total cost for a product and quantity.
+
+recommend_product – Suggest the cheapest product.
+
+These tools are registered with the Agent and called automatically as needed.
+
+What I Learned
+
+Modular Design: Extracting RunConfig into its own file allows reusability and cleaner code.
+
+Separation of Concerns: Agent logic is independent of execution configuration.
+
+Runner Execution Flow: Learned how Runner.run() uses RunConfig to execute tools and generate AI responses.
+
+Tool-Based Interaction: Realized how to design AI assistants that use multiple tools and structured context.
+
+Logging & Debugging: Instrumenting logging in FastAPI, tools, and Agent execution helps track flow and errors.
