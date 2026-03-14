@@ -47,7 +47,7 @@ client = AsyncOpenAI(
 # Model
 # -----------------------------
 model = OpenAIChatCompletionsModel(
-    model="gemini-2.0-flash-001",
+    model="gemini-flash-lite-latest",
     openai_client=client
 )
 
@@ -86,6 +86,7 @@ context = StoreContext(
 # -----------------------------
 @function_tool
 async def list_products(wrapper: RunContextWrapper[StoreContext]) -> str:
+    """List all available products"""
 
     logger.info("Tool: list_products")
 
@@ -101,8 +102,9 @@ async def list_products(wrapper: RunContextWrapper[StoreContext]) -> str:
 async def calculate_total(
     wrapper: RunContextWrapper[StoreContext],
     product_name: str,
-    quantity: int
+    quantity: int = 1
 ) -> str:
+    """Calculate total price of a product"""
 
     logger.info("Tool: calculate_total")
 
@@ -116,6 +118,7 @@ async def calculate_total(
 
 @function_tool
 async def recommend_product(wrapper: RunContextWrapper[StoreContext]) -> str:
+    """Recommend cheapest product"""
 
     logger.info("Tool: recommend_product")
 
@@ -127,41 +130,52 @@ async def recommend_product(wrapper: RunContextWrapper[StoreContext]) -> str:
 # -----------------------------
 # Specialized Agents
 # -----------------------------
-
 product_agent = Agent[StoreContext](
     name="Product Agent",
-    instructions="Handle product listing queries.",
+    instructions="""
+You are responsible for product listing queries.
+Use the list_products tool to answer user questions.
+""",
     tools=[list_products],
     model=model
 )
 
+
 billing_agent = Agent[StoreContext](
     name="Billing Agent",
-    instructions="Handle price calculation queries.",
+    instructions="""
+You are responsible for pricing queries.
+Use calculate_total tool when the user asks about price or cost.
+If quantity is not provided assume quantity = 1.
+""",
     tools=[calculate_total],
     model=model
 )
 
+
 recommend_agent = Agent[StoreContext](
     name="Recommendation Agent",
-    instructions="Recommend products to users.",
+    instructions="""
+You recommend products to customers.
+Use the recommend_product tool to give suggestions.
+""",
     tools=[recommend_product],
     model=model
 )
 
 
 # -----------------------------
-# Main Agent with Handoffs
+# Router Agent (Main Agent)
 # -----------------------------
 store_agent = Agent[StoreContext](
     name="Store Assistant",
     instructions="""
-    You are the main ecommerce assistant.
+You are the main ecommerce assistant that routes user requests. you can only use tools given below not allowed to answer from external website or your own knowledge.
 
-    If the user asks about products → handoff to Product Agent.
-    If the user asks about price or totals → handoff to Billing Agent.
-    If the user asks for suggestions → handoff to Recommendation Agent.
-    """,
+Routing Rules:
+
+Always handoff to the correct agent instead of answering directly.
+""",
     handoffs=[product_agent, billing_agent, recommend_agent],
     model=model
 )

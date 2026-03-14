@@ -44,11 +44,11 @@ logger.info("Gemini client initialized")
 # Model
 # ----------------------------
 model = OpenAIChatCompletionsModel(
-    model="gemini-2.0-flash-001",
+    model="gemini-flash-lite-latest",
     openai_client=client
 )
 
-logger.info("Model loaded: gemini-2.0-flash-001")
+logger.info("Model loaded: gemini-flash-lite-latest")
 
 # ----------------------------
 # Run Configuration
@@ -82,7 +82,7 @@ class Query(BaseModel):
 @app.get("/")
 def home():
     logger.info("Home endpoint accessed")
-    return {"message": "Gemini Agent API Running 🚀"}
+    return {"message": "Gemini Agent API Running Successfully"}
 
 
 @app.post("/ask")

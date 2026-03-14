@@ -1,0 +1,153 @@
+Tool Calling
+
+Tool calling allows an AI agent to invoke predefined Python functions (tools) when it needs external data or logic to answer a question.
+
+Instead of the model generating responses directly, it can:
+
+Understand the user's query
+
+Decide which tool is relevant
+
+Call the tool
+
+Use the tool's output to generate the final response
+
+This allows the agent to perform real actions using real application logic.
+
+How I Implemented Tool Calling
+
+I created tools using the @function_tool decorator.
+
+Example:
+
+@function_tool
+async def list_products(wrapper: RunContextWrapper[StoreContext]) -> str:
+
+This decorator registers the function as a tool that the agent can call.
+
+The agent can then use this function whenever the user asks about available products.
+
+Example Tool: List Products
+
+This tool returns the list of products stored in the application context.
+
+@function_tool
+async def list_products(wrapper: RunContextWrapper[StoreContext]) -> str:
+
+    logger.info("Tool called: list_products")
+
+    result = "Available Products:\n"
+
+    for p in wrapper.context.products:
+        result += f"- {p.name}: ${p.price}\n"
+
+    return result
+
+The tool accesses the shared StoreContext to retrieve product information.
+
+Example Tool: Calculate Total
+
+This tool calculates the total cost of a product.
+
+@function_tool
+async def calculate_total(
+    wrapper: RunContextWrapper[StoreContext],
+    product_name: str,
+    quantity: int
+) -> str:
+
+If a user asks something like:
+
+"What is the price of 2 laptops?"
+
+The agent calls this tool and returns the computed result.
+
+RunContextWrapper
+
+Each tool receives a RunContextWrapper object.
+
+RunContextWrapper[StoreContext]
+
+This wrapper gives tools access to the shared application context.
+
+Example:
+
+wrapper.context.products
+
+This allows tools to interact with the application's product data.
+
+Forced Tool Calling
+
+Another important concept I implemented is Forced Tool Calling.
+
+Normally, the agent chooses whether to call a tool or generate an answer itself.
+
+However, in some applications, we want to force the agent to use tools instead of generating responses from the model.
+
+This ensures that the agent always relies on real system data.
+
+Why Forced Tool Calling Is Important
+
+Forced tool usage ensures:
+
+The agent does not hallucinate product information
+
+Responses always come from actual application data
+
+Business logic remains controlled by backend functions
+
+This is especially useful in systems like:
+
+E-commerce
+
+Finance
+
+Inventory systems
+
+Booking platforms
+
+How I Implemented Forced Tool Calling
+
+I used ModelSettings and set tool_choice="required".
+
+model_settings = ModelSettings(
+    tool_choice="required"
+)
+
+Then I passed it to the agent:
+
+agent = Agent[StoreContext](
+    name="Ecommerce Assistant",
+    instructions="""
+    Always use tools to answer user queries.
+    Never generate product data yourself.
+    """,
+    tools=[list_products, calculate_total],
+    model=model,
+    model_settings=model_settings
+)
+What This Means
+
+Setting:
+
+tool_choice="required"
+
+forces the agent to:
+
+Always call one of the available tools
+
+Never generate answers directly
+
+Use backend functions to respond
+
+So the model cannot produce responses like:
+
+❌ "A laptop costs around $1000."
+
+Instead it must call:
+
+calculate_total()
+
+or
+
+list_products()

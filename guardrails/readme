@@ -1,0 +1,104 @@
+The goal of using guardrails here is to block harmful, irrelevant, or restricted queries such as hacking, drugs, or political topics. Since the agent is designed to work as an e-commerce assistant, the guardrail ensures that the agent only handles shopping-related queries.
+
+How I Implemented Guardrails
+
+I created an input guardrail function using the @input_guardrail decorator.
+
+@input_guardrail(run_in_parallel=False)
+async def ecommerce_guardrail(...)
+
+This function checks every user query before the agent processes it.
+
+The guardrail scans the input for blocked keywords like:
+
+hack
+
+attack
+
+bomb
+
+drugs
+
+politics
+
+If any of these keywords appear in the query, the guardrail triggers a tripwire and blocks the request.
+
+Meaning of Guardrail Keywords Used
+@input_guardrail
+
+This decorator registers a function as an input validation guardrail.
+It ensures the function runs before the agent processes the user query.
+
+run_in_parallel=False
+
+This setting controls how guardrails execute.
+
+False → the guardrail runs sequentially before the agent
+
+True → guardrail runs in parallel with other guardrails
+
+In this project, I used sequential execution to ensure input validation happens first.
+
+GuardrailFunctionOutput
+
+This object defines the result returned by the guardrail.
+
+GuardrailFunctionOutput(
+    output_info=user_input,
+    tripwire_triggered=blocked
+)
+
+It contains:
+
+output_info → information passed forward (here it keeps the user input)
+
+tripwire_triggered → a boolean indicating whether the guardrail blocked the request
+
+tripwire_triggered
+
+This flag determines if the request should be blocked.
+
+False → input is safe, agent continues
+
+True → guardrail blocks the request
+
+In this project, it becomes True when blocked keywords are detected.
+
+InputGuardrailTripwireTriggered
+
+This is an exception raised when a guardrail tripwire is triggered.
+
+I handled it inside the API endpoint:
+
+except InputGuardrailTripwireTriggered:
+    return {"error": "Query blocked by guardrail"}
+
+This prevents the agent from responding to unsafe queries.
+
+Guardrail Workflow in This Project
+
+User sends a query to /ask
+
+Guardrail function checks the input
+
+If blocked keywords are found → tripwire triggers
+
+Exception InputGuardrailTripwireTriggered is raised
+
+API returns "Query blocked by guardrail"
+
+If no issues are found → the agent continues normally
+
+What I Learned
+
+From implementing guardrails, I learned:
+
+How to validate user input before the agent runs
+
+How to prevent unsafe or irrelevant queries
+
+How to implement tripwire-based security checks
+
+How to handle guardrail exceptions in an API
+
+Guardrails are important for building safe and controlled AI systems, especially in real-world applications like e-commerce, finance, or healthcare.

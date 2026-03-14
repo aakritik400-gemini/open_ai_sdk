@@ -1,0 +1,65 @@
+Context System (Agent Context)
+
+One of the key things I learned was how to use agent context.
+
+I created a context that stores available products.
+
+@dataclass
+class StoreContext:
+    products: List[Product]
+
+Then I initialized it with sample data.
+
+context = StoreContext(
+    products=[
+        Product("Laptop", 1000),
+        Product("Mouse", 25),
+        Product("Keyboard", 75),
+    ]
+)
+Why I used this
+
+The context allows the agent and tools to access shared application data.
+
+In this project, the context stores the product catalog.
+
+5. Function Tools
+
+A major concept I explored was function tools.
+
+Tools allow the agent to call Python functions when needed.
+
+I used the @function_tool decorator.
+
+Tool: List Products
+@function_tool
+async def list_products(wrapper: RunContextWrapper[StoreContext]) -> str:
+
+This tool returns all products in the store.
+
+Tool: Calculate Total Price
+@function_tool
+async def calculate_total(wrapper: RunContextWrapper[StoreContext], product_name: str, quantity: int) -> str:
+
+This tool calculates the total cost of a product based on quantity.
+
+Tool: Recommend Product
+@function_tool
+async def recommend_product(wrapper: RunContextWrapper[StoreContext]) -> str:
+
+This tool recommends the cheapest product.
+
+6. RunContextWrapper
+
+Each tool receives a wrapper object.
+
+RunContextWrapper[StoreContext]
+Why I used this
+
+This wrapper gives tools access to the shared context data.
+
+Example:
+
+wrapper.context.products
+
+This allows tools to access the product list.

@@ -1,33 +1,244 @@
-AI Agent API (OpenAI Agents SDK)
-Overview
+This API allows users to:
 
-In this file, I built a simple AI Agent API using FastAPI and the OpenAI Agents SDK.
-The agent answers user questions using the Gemini model through an OpenAI-compatible API.
+Send a question to the AI agent.
 
-What the API Does
+The agent processes the question using Gemini.
 
-User sends a question to the API.
+The response is returned through a FastAPI endpoint.
 
-The AI agent processes the query.
+Example flow:
 
-The Gemini model generates a response.
+User → FastAPI endpoint → Agent → Gemini Model → Response → User
 
-The API returns the AI-generated answer.
+Technologies Used
 
-Endpoint
+Python
+
+FastAPI
+
+OpenAI Agents SDK
+
+Gemini API
+
+Async Programming
+
+dotenv
+
+Logging
+
+Concepts of OpenAI Agents SDK I Used
+1. AsyncOpenAI Client
+
+First, I created an OpenAI-compatible client to communicate with the Gemini API.
+
+client = AsyncOpenAI(
+    api_key=gemini_api_key,
+    base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+)
+Why I used this
+
+The AsyncOpenAI client allows the OpenAI Agents SDK to communicate with APIs that follow the OpenAI API format.
+
+In this case, I connected it to Google Gemini instead of OpenAI.
+
+2. OpenAIChatCompletionsModel
+
+Then I configured the model.
+
+model = OpenAIChatCompletionsModel(
+    model="gemini-flash-lite-latest",
+    openai_client=client
+)
+Why I used this
+
+This class allows the Agents SDK to interact with chat completion models.
+
+It defines:
+
+which model to use
+
+which client will call the model
+
+3. Agent
+
+Next, I created an Agent.
+
+agent = Agent(
+    name="Assistant",
+    instructions="You are a helpful assistant.",
+    model=model
+)
+Why I used this
+
+An Agent represents the AI system that receives instructions and generates responses.
+
+It contains:
+
+agent name
+
+instructions (system prompt)
+
+model configuration
+
+This allows us to create reusable AI agents.
+
+4. RunConfig
+
+I created a RunConfig to control how the agent runs.
+
+config = RunConfig(
+    model=model,
+    model_provider=client,
+    tracing_disabled=True
+)
+Why I used this
+
+RunConfig allows us to configure:
+
+which model is used
+
+the provider client
+
+tracing or logging behavior
+
+5. Runner
+
+The Runner is responsible for executing the agent.
+
+result = await Runner.run(
+    agent,
+    query.question,
+    run_config=config
+)
+Why I used this
+
+The Runner:
+
+sends input to the agent
+
+handles model execution
+
+manages the full agent workflow
+
+returns the final response
+
+FastAPI Integration
+
+I used FastAPI to expose the agent as an API.
+
+Home Endpoint
+GET /
+
+Returns:
+
+Gemini Agent API Running Successfully
+
+This confirms that the API server is working.
+
+Ask Agent Endpoint
 POST /ask
 
-Example request:
+Request Body:
+
 {
-  "question": "Explain memory management in Python"
+  "question": "What is artificial intelligence?"
 }
 
-Goal
+The request is sent to the agent, and the model generates a response.
 
-The goal of this project was to understand how to:
+Response Example:
 
-Use the OpenAI Agents SDK
+{
+  "response": "Artificial intelligence is the simulation of human intelligence in machines..."
+}
+Environment Variables
 
-Integrate LLM models
+I used dotenv to securely load the Gemini API key.
 
-Build a simple AI backend service
+load_dotenv()
+gemini_api_key = os.getenv("GEMINI_API_KEY")
+
+This prevents exposing API keys in the source code.
+
+Logging
+
+I implemented logging to track application behavior.
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+Logging helps monitor:
+
+API requests
+
+errors
+
+agent responses
+
+Async Programming
+
+This project uses async functions to handle API requests efficiently.
+
+Example:
+
+async def ask_agent(query: Query):
+
+and
+
+await Runner.run(...)
+
+Async programming improves performance and scalability when dealing with multiple requests.
+
+Project Workflow
+
+The workflow of this project is:
+
+User sends a request to /ask
+
+FastAPI receives the request
+
+Runner executes the agent
+
+Agent sends request to Gemini model
+
+Model generates a response
+
+Response is returned to the user
+
+What I Learned From This Project
+
+While building this project, I learned:
+
+How the OpenAI Agents SDK works
+
+How to create and configure AI Agents
+
+How to connect Gemini using OpenAI-compatible APIs
+
+How to use Runner to execute agents
+
+How to configure execution using RunConfig
+
+How to build an AI API with FastAPI
+
+How to handle async model execution
+
+How to manage environment variables securely
+
+How to implement logging for backend applications
+
+Future Improvements
+
+Possible improvements for this project:
+
+Add conversation memory
+
+Add tool calling
+
+Add multiple agents
+
+Add streaming responses
+
+Deploy the API

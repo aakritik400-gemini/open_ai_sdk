@@ -17,7 +17,7 @@ from agents import AsyncOpenAI, OpenAIChatCompletionsModel
 from agents.run import RunConfig
 
 client = AsyncOpenAI(api_key=GEMINI_API_KEY)
-model = OpenAIChatCompletionsModel(model="gemini-2.0-flash-001", openai_client=client)
+model = OpenAIChatCompletionsModel(model="gemini-flash-lite-latest", openai_client=client)
 run_config = RunConfig(model=model, model_provider=client, tracing_disabled=True)
 
 Imported run_config in my FastAPI app:
