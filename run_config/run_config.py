@@ -42,7 +42,7 @@ except Exception as e:
 # -----------------------------
 try:
     model = OpenAIChatCompletionsModel(
-        model="gemini-flash-lite-latest",
+        model="gemini-2.5-flash",
         openai_client=client
     )
     logger.info("Model created")

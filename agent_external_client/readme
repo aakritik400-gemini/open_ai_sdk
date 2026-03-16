@@ -46,7 +46,7 @@ In this case, I connected it to Google Gemini instead of OpenAI.
 Then I configured the model.
 
 model = OpenAIChatCompletionsModel(
-    model="gemini-flash-lite-latest",
+    model="gemini-2.5-flash",
     openai_client=client
 )
 Why I used this

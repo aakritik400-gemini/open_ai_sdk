@@ -1,7 +1,7 @@
 import os
 import logging
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -19,35 +19,52 @@ from agents import (
 from agents.run import RunConfig
 
 
-# -----------------------------
-# Logger
-# -----------------------------
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# ---------------------------------------------------
+# Logger Configuration
+# ---------------------------------------------------
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+)
+
+logger = logging.getLogger("store-agent")
 
 
-# -----------------------------
+# ---------------------------------------------------
 # Load ENV
-# -----------------------------
+# ---------------------------------------------------
+logger.info("Loading environment variables")
+
 load_dotenv()
 
 gemini_api_key = os.getenv("GEMINI_API_KEY")
 
+if not gemini_api_key:
+    raise ValueError("GEMINI_API_KEY not found")
 
-# -----------------------------
+logger.info("Environment loaded successfully")
+
+
+# ---------------------------------------------------
 # Gemini Client
-# -----------------------------
+# ---------------------------------------------------
+logger.info("Initializing Gemini client")
+
 client = AsyncOpenAI(
     api_key=gemini_api_key,
     base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
 )
 
+logger.info("Gemini client initialized")
 
-# -----------------------------
+
+# ---------------------------------------------------
 # Model
-# -----------------------------
+# ---------------------------------------------------
+logger.info("Loading model gemini-2.5-flash")
+
 model = OpenAIChatCompletionsModel(
-    model="gemini-flash-lite-latest",
+    model="gemini-2.5-flash",
     openai_client=client
 )
 
@@ -57,10 +74,12 @@ config = RunConfig(
     tracing_disabled=True
 )
 
+logger.info("Model configured")
 
-# -----------------------------
+
+# ---------------------------------------------------
 # Data Classes
-# -----------------------------
+# ---------------------------------------------------
 @dataclass
 class Product:
     name: str
@@ -72,6 +91,8 @@ class StoreContext:
     products: List[Product]
 
 
+logger.info("Creating store context")
+
 context = StoreContext(
     products=[
         Product("Laptop", 1000),
@@ -80,17 +101,19 @@ context = StoreContext(
     ]
 )
 
+logger.info("Store context created")
 
-# -----------------------------
+
+# ---------------------------------------------------
 # Tools
-# -----------------------------
+# ---------------------------------------------------
 @function_tool
 async def list_products(wrapper: RunContextWrapper[StoreContext]) -> str:
-    """List all available products"""
+    """Return list of products"""
 
-    logger.info("Tool: list_products")
+    logger.info("TOOL → list_products called")
 
-    result = "Available Products:\n"
+    result = "Available products:\n"
 
     for p in wrapper.context.products:
         result += f"- {p.name}: ${p.price}\n"
@@ -104,86 +127,144 @@ async def calculate_total(
     product_name: str,
     quantity: int = 1
 ) -> str:
-    """Calculate total price of a product"""
+    """Calculate total price"""
 
-    logger.info("Tool: calculate_total")
+    logger.info(f"TOOL → calculate_total | product={product_name} quantity={quantity}")
 
     for p in wrapper.context.products:
+
         if p.name.lower() == product_name.lower():
+
             total = p.price * quantity
+
+            logger.info(f"Calculated total = ${total}")
+
             return f"Total price for {quantity} {p.name} is ${total}"
 
     return "Product not found."
 
 
 @function_tool
-async def recommend_product(wrapper: RunContextWrapper[StoreContext]) -> str:
-    """Recommend cheapest product"""
+async def recommend_product(
+    wrapper: RunContextWrapper[StoreContext],
+    max_price: Optional[float] = None
+) -> str:
+    """Recommend product optionally under price"""
 
-    logger.info("Tool: recommend_product")
+    logger.info(f"TOOL → recommend_product | max_price={max_price}")
 
-    cheapest = min(wrapper.context.products, key=lambda x: x.price)
+    products = wrapper.context.products
 
-    return f"I recommend {cheapest.name} because it costs only ${cheapest.price}"
+    if max_price is not None:
+        products = [p for p in products if p.price <= max_price]
+
+    if not products:
+        return "No products found in that price range."
+
+    best = min(products, key=lambda x: x.price)
+
+    return f"I recommend {best.name} for ${best.price}"
 
 
-# -----------------------------
-# Specialized Agents
-# -----------------------------
+# ---------------------------------------------------
+# Agents
+# ---------------------------------------------------
+logger.info("Creating Product Agent")
+
 product_agent = Agent[StoreContext](
     name="Product Agent",
+    handoff_description="Handles product list queries",
     instructions="""
-You are responsible for product listing queries.
-Use the list_products tool to answer user questions.
+You handle product listing queries.
+
+Rules:
+- Always use the list_products tool.
+- Return the tool output to the user.
 """,
     tools=[list_products],
     model=model
 )
 
 
+logger.info("Creating Billing Agent")
+
 billing_agent = Agent[StoreContext](
     name="Billing Agent",
+    handoff_description="Handles price and billing questions",
     instructions="""
-You are responsible for pricing queries.
-Use calculate_total tool when the user asks about price or cost.
-If quantity is not provided assume quantity = 1.
+You handle pricing questions.
+
+Rules:
+- Always use calculate_total tool when price is requested.
+- If quantity missing assume 1.
+- Return the tool output to the user.
 """,
     tools=[calculate_total],
     model=model
 )
 
 
+logger.info("Creating Recommendation Agent")
+
 recommend_agent = Agent[StoreContext](
     name="Recommendation Agent",
+    handoff_description="Handles product recommendation questions",
     instructions="""
-You recommend products to customers.
-Use the recommend_product tool to give suggestions.
+You recommend products.
+
+Rules:
+- Always use recommend_product tool.
+- If the user specifies a price limit, pass it as max_price.
+- Return tool result directly.
 """,
     tools=[recommend_product],
     model=model
 )
 
 
-# -----------------------------
-# Router Agent (Main Agent)
-# -----------------------------
+# ---------------------------------------------------
+# Router Agent
+# ---------------------------------------------------
+logger.info("Creating Router Agent")
+
 store_agent = Agent[StoreContext](
-    name="Store Assistant",
+    name="Store Router",
     instructions="""
-You are the main ecommerce assistant that routes user requests. you can only use tools given below not allowed to answer from external website or your own knowledge.
+You are a routing agent.
 
-Routing Rules:
+Your job is ONLY to delegate user requests to the correct agent.
 
-Always handoff to the correct agent instead of answering directly.
+Rules:
+- Never answer questions yourself.
+- Always perform exactly ONE handoff.
+- After the handoff the delegated agent will answer.
+
+Routing Guide:
+
+Product Agent:
+Questions about available products or product list.
+
+Billing Agent:
+Questions about price, cost, or totals.
+
+Recommendation Agent:
+Questions about suggestions, recommendations,
+or what product to buy.
 """,
-    handoffs=[product_agent, billing_agent, recommend_agent],
+    handoffs=[
+        product_agent,
+        billing_agent,
+        recommend_agent,
+    ],
     model=model
 )
 
+logger.info("Router agent ready")
 
-# -----------------------------
+
+# ---------------------------------------------------
 # FastAPI
-# -----------------------------
+# ---------------------------------------------------
 app = FastAPI()
 
 
@@ -193,19 +274,33 @@ class Query(BaseModel):
 
 @app.get("/")
 def home():
+
+    logger.info("Health check called")
+
     return {"message": "Store Agent Running 🚀"}
 
 
 @app.post("/ask")
 async def ask_agent(query: Query):
 
-    logger.info(f"Question: {query.question}")
+    logger.info("====================================")
+    logger.info(f"User Question → {query.question}")
 
-    result = await Runner.run(
-        starting_agent=store_agent,
-        input=query.question,
-        context=context,
-        run_config=config
-    )
+    try:
 
-    return {"response": result.final_output}
+        result = await Runner.run(
+            starting_agent=store_agent,
+            input=query.question,
+            context=context,
+            run_config=config
+        )
+
+        logger.info(f"Final Response → {result.final_output}")
+
+        return {"response": result.final_output}
+
+    except Exception as e:
+
+        logger.exception("Agent execution failed")
+
+        return {"error": str(e)}

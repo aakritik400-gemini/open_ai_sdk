@@ -1,11 +1,13 @@
-from openai import OpenAI
+import requests
+import os
 
-client = OpenAI(
-    api_key="",
-    base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
-)
+API_KEY = os.getenv("GEMINI_API_KEY")
 
-models = client.models.list()
+url = f"https://generativelanguage.googleapis.com/v1beta/models?key={API_KEY}"
 
-for model in models.data:
-    print(model.id)
+response = requests.get(url)
+
+data = response.json()
+
+for model in data.get("models", []):
+    print(model["name"])

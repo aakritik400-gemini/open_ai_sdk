@@ -6,33 +6,38 @@ from pydantic import BaseModel
 
 from agents import Agent, Runner, AsyncOpenAI, OpenAIChatCompletionsModel
 from agents.run import RunConfig
+from agents.lifecycle import RunHooks
 
 # ----------------------------
 # Logger Configuration
 # ----------------------------
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
 )
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("store-agent")
 
 # ----------------------------
 # Load Environment Variables
 # ----------------------------
+logger.info("Loading environment variables")
+
 load_dotenv()
 
 gemini_api_key = os.getenv("GEMINI_API_KEY")
 
 if not gemini_api_key:
-    logger.error("GEMINI_API_KEY not found in .env")
+    logger.error("GEMINI_API_KEY not found")
     raise ValueError("GEMINI_API_KEY not found")
 
-logger.info("Environment variables loaded successfully")
+logger.info("Environment loaded successfully")
 
 # ----------------------------
 # Gemini Client
 # ----------------------------
+logger.info("Initializing Gemini client")
+
 client = AsyncOpenAI(
     api_key=gemini_api_key,
     base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
@@ -51,7 +56,28 @@ model = OpenAIChatCompletionsModel(
 logger.info("Model loaded: gemini-2.5-flash")
 
 # ----------------------------
-# Run Configuration
+# Hooks
+# ----------------------------
+class MyRunHooks(RunHooks):
+
+    async def before_run(self, context, agent, input):
+        logger.info("HOOK → Before agent run")
+        logger.info(f"Agent: {agent.name}")
+        logger.info(f"Input: {input}")
+
+    async def after_run(self, context, agent, output):
+        logger.info("HOOK → After agent run")
+        logger.info(f"Output: {output.final_output}")
+
+    async def on_error(self, context, agent, error):
+        logger.error("HOOK → Error during run")
+        logger.error(str(error))
+
+
+hooks = MyRunHooks()
+
+# ----------------------------
+# Run Config
 # ----------------------------
 config = RunConfig(
     model=model,
@@ -73,7 +99,7 @@ logger.info("Agent initialized")
 # ----------------------------
 # FastAPI App
 # ----------------------------
-app = FastAPI()
+app = FastAPI(title="Gemini Agent API")
 
 class Query(BaseModel):
     question: str
@@ -94,12 +120,16 @@ async def ask_agent(query: Query):
         result = await Runner.run(
             agent,
             query.question,
-            run_config=config
+            run_config=config,
+            hooks=hooks   
         )
 
-        logger.info("Agent response generated successfully")
+        logger.info("Agent response generated")
 
-        return {"response": result.final_output}
+        return {
+            "question": query.question,
+            "response": result.final_output
+        }
 
     except Exception as e:
         logger.error(f"Error occurred: {str(e)}")

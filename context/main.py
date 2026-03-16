@@ -71,7 +71,7 @@ try:
     logger.info("Creating model...")
 
     model = OpenAIChatCompletionsModel(
-        model="gemini-flash-lite-latest",
+        model="gemini-2.5-flash",
         openai_client=client
     )
 
@@ -160,24 +160,6 @@ async def recommend_product(wrapper: RunContextWrapper[StoreContext]) -> str:
 # -----------------------------
 # Agent
 # -----------------------------
-try:
-    logger.info("Creating agent...")
-
-    agent = Agent[StoreContext](
-        name="Ecommerce Assistant",
-        instructions="""
-        You help users explore products and calculate prices.
-        Use tools whenever necessary.
-        """,
-        tools=[list_products, calculate_total, recommend_product],
-        model=model
-    )
-
-    logger.info("Agent created successfully")
-
-except Exception as e:
-    logger.exception("Agent creation failed")
-    raise e
 
 
 # -----------------------------
